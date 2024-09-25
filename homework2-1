@@ -1,0 +1,37 @@
+from flask import flask
+import RPi.GPIO as GPIO
+
+GPIO.setmode(GPIO.BCM)
+ledPin = [18,23]
+ledStates=[0,0]
+
+GPIO.setup(ledPin[0], GPIO.OUT)
+GPIO.setup(ledPin[1], GPIO.OUT)
+
+app = Flask(_name_)
+
+@app.route('/')
+def index():
+    return 'Hello world'
+
+@app.route('/LED1on')
+def LED1on():
+    return 'Here is LED 1 ON page'
+
+
+@app.route('/LED1off')
+def LED1on():
+    return 'Here is LED 1 Off page'
+
+
+@app.route('/LED2on')
+def LED1on():
+    return 'Here is LED 2 ON page'
+
+
+@app.route('/LED2off')
+def LED1on():
+    return 'Here is LED 2 Off page'
+
+if __name__=="__main__":
+    app.run(port=8080, host='0,0,0,0')
