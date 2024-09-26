@@ -3,30 +3,31 @@ import RPi.GPIO as GPIO
 import time
 import threading
 
-# GPIO 설정
+# GPIO setup
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 
-# 초음파 센서 핀 설정
-TRIG_PIN = 17  # Trigger 핀
-ECHO_PIN = 18  # Echo 핀
-distance = 0  # 거리 초기화
-alert_threshold = 10  # 근접 알람 거리 (cm)
+# Define pins for the ultrasonic sensor
+TRIG_PIN = 17  # Trigger pin
+ECHO_PIN = 18  # Echo pin
+distance = 0  # Initialize distance variable
+alert_threshold = 10  # Alert threshold distance (cm)
 
-# 초음파 센서 핀 설정
+# Setup the ultrasonic sensor pins
 GPIO.setup(TRIG_PIN, GPIO.OUT)
 GPIO.setup(ECHO_PIN, GPIO.IN)
 
+# Function to measure distance using the ultrasonic sensor
 def measure_distance():
     global distance
     while True:
         try:
-            # Trigger 신호 생성
+            # Generate a trigger signal
             GPIO.output(TRIG_PIN, True)
-            time.sleep(0.00001)  # 10us 신호 전송
+            time.sleep(0.00001)  # Send a 10 microsecond pulse
             GPIO.output(TRIG_PIN, False)
 
-            # Echo 신호 수신 시간 측정
+            # Measure the time for the echo signal to return
             start_time = time.time()
             while GPIO.input(ECHO_PIN) == 0:
                 start_time = time.time()
@@ -34,17 +35,17 @@ def measure_distance():
             while GPIO.input(ECHO_PIN) == 1:
                 end_time = time.time()
 
-            # 소리의 속도: 34300 cm/s
+            # Speed of sound: 34300 cm/s
             elapsed_time = end_time - start_time
-            distance = (elapsed_time * 34300) / 2  # cm로 변환
+            distance = (elapsed_time * 34300) / 2  # Convert to cm
 
-            print(f"Distance measured: {distance} cm")  # 거리 측정 로그 출력
+            print(f"Distance measured: {distance} cm")  # Log the measured distance
 
-            time.sleep(1)  # 1초 간격으로 거리 측정
+            time.sleep(1)  # Measure distance every second
         except Exception as e:
             print(f"Error measuring distance: {e}")
 
-# HTML 페이지 템플릿
+# HTML page template
 html_page = '''<!doctype html>
     <html>
         <head>
@@ -59,7 +60,7 @@ html_page = '''<!doctype html>
                         document.close();
                     });
                 }
-                setInterval(updateStatus, 2000);  // 2초마다 상태 갱신
+                setInterval(updateStatus, 2000);  // Refresh the status every 2 seconds
             </script>
         </head>
      <body>
@@ -76,20 +77,23 @@ html_page = '''<!doctype html>
     </html>
 '''
 
-
+# Initialize the Flask app
 app = Flask(__name__)
 
+# Define the route for the homepage, which will display the distance measurement
 @app.route('/')
 def index():
+    # Render the HTML page with the current distance and alert threshold
     return render_template_string(html_page, distance=distance, alert_threshold=alert_threshold)
 
-# 거리 측정 스레드 시작
+# Start the distance measurement thread
 distance_thread = threading.Thread(target=measure_distance)
 distance_thread.daemon = True
 distance_thread.start()
 
+# Run the Flask app on port 5000 and make it accessible from any IP address (0.0.0.0)
 if __name__ == "__main__":
     try:
-        app.run(port=5000, host='0.0.0.0', debug=True)  # 디버그 모드 활성화
+        app.run(port=5000, host='0.0.0.0', debug=True)  # Enable debug mode
     finally:
-        GPIO.cleanup()  # 종료 시 GPIO 초기화
+        GPIO.cleanup()  # Clean up GPIO settings when the program exits
