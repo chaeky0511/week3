@@ -1,0 +1,95 @@
+from flask import Flask, render_template_string
+import RPi.GPIO as GPIO
+import time
+import threading
+
+# GPIO 설정
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+# 초음파 센서 핀 설정
+TRIG_PIN = 17  # Trigger 핀
+ECHO_PIN = 18  # Echo 핀
+distance = 0  # 거리 초기화
+alert_threshold = 10  # 근접 알람 거리 (cm)
+
+# 초음파 센서 핀 설정
+GPIO.setup(TRIG_PIN, GPIO.OUT)
+GPIO.setup(ECHO_PIN, GPIO.IN)
+
+def measure_distance():
+    global distance
+    while True:
+        try:
+            # Trigger 신호 생성
+            GPIO.output(TRIG_PIN, True)
+            time.sleep(0.00001)  # 10us 신호 전송
+            GPIO.output(TRIG_PIN, False)
+
+            # Echo 신호 수신 시간 측정
+            start_time = time.time()
+            while GPIO.input(ECHO_PIN) == 0:
+                start_time = time.time()
+
+            while GPIO.input(ECHO_PIN) == 1:
+                end_time = time.time()
+
+            # 소리의 속도: 34300 cm/s
+            elapsed_time = end_time - start_time
+            distance = (elapsed_time * 34300) / 2  # cm로 변환
+
+            print(f"Distance measured: {distance} cm")  # 거리 측정 로그 출력
+
+            time.sleep(1)  # 1초 간격으로 거리 측정
+        except Exception as e:
+            print(f"Error measuring distance: {e}")
+
+# HTML 페이지 템플릿
+html_page = '''<!doctype html>
+    <html>
+        <head>
+            <title>Distance Sensor Controller</title>
+            <script>
+                function updateStatus() {
+                    fetch('/')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    });
+                }
+                setInterval(updateStatus, 2000);  // 2초마다 상태 갱신
+            </script>
+        </head>
+     <body>
+         <h1>Embedded System Distance Monitor</h1>
+         <hr>
+         <div style="padding-left:20px;">
+            <h3>Distance Measurement</h3>
+            <p><b>Distance: {{ distance | round(2) }} cm</b></p>
+            {% if distance < alert_threshold %}
+                <p style="color: red;"><b>Alert! Object is too close!</b></p>
+            {% endif %}
+         </div>
+       </body>
+    </html>
+'''
+
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template_string(html_page, distance=distance, alert_threshold=alert_threshold)
+
+# 거리 측정 스레드 시작
+distance_thread = threading.Thread(target=measure_distance)
+distance_thread.daemon = True
+distance_thread.start()
+
+if __name__ == "__main__":
+    try:
+        app.run(port=5000, host='0.0.0.0', debug=True)  # 디버그 모드 활성화
+    finally:
+        GPIO.cleanup()  # 종료 시 GPIO 초기화
