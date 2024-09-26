@@ -1,0 +1,71 @@
+from flask import Flask, render_template_string
+import RPi.GPIO as GPIO
+import time
+import threading
+
+# GPIO 설정
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+# 터치 센서 핀 설정
+TOUCH_PIN = 27  # 터치 센서 핀 번호
+touchState = 0  # 터치 센서 상태 (0: 터치되지 않음, 1: 터치됨)
+
+# 터치 센서 핀 입력으로 설정
+GPIO.setup(TOUCH_PIN, GPIO.IN)
+
+# 터치 센서 상태를 주기적으로 확인하는 함수
+def monitor_touch():
+    global touchState
+    while True:
+        if GPIO.input(TOUCH_PIN) == GPIO.HIGH:  # 터치 감지
+            touchState = 1
+        else:  # 터치되지 않음
+            touchState = 0
+        time.sleep(0.1)  # 100ms 간격으로 체크
+
+# HTML 페이지 템플릿
+html_page = '''<!doctype html>
+    <html>
+        <head>
+            <title>Touch Sensor Controller</title>
+            <script>
+                function updateStatus() {
+                    fetch('/')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    });
+                }
+                setInterval(updateStatus, 2000);  // 2초마다 상태 갱신
+            </script>
+        </head>
+     <body>
+         <h1>Embedded System Controller</h1>
+         <hr>
+         <div style="padding-left:20px;">
+            <h3>Touch Sensor</h3>
+            <p><b>Touch Sensor Status: {% if touchState == 1 %} Touched {% else %} Not Touched {% endif %}</b></p>    
+         </div>
+       </body>
+    </html>
+'''
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template_string(html_page, touchState=touchState)
+
+# 터치 센서 모니터링 스레드 시작
+touch_thread = threading.Thread(target=monitor_touch)
+touch_thread.daemon = True
+touch_thread.start()
+
+if __name__ == "__main__":
+    try:
+        app.run(port=5000, host='0.0.0.0')  # 포트 5000에서 실행
+    finally:
+        GPIO.cleanup()  # 종료 시 GPIO 초기화
